@@ -13,3 +13,5 @@ instance/
 # IDE settings (optional but recommended)
 .vscode/
 .idea/
+
+.env

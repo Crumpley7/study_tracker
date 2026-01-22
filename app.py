@@ -3,12 +3,17 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
 import random
+import os
+from dotenv import load_dotenv
+
+# Load variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
-# SECURITY CONFIGURATION
-app.config['SECRET_KEY'] = 'your-very-secret-key-123' # Required for session security
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///study.db'
+# use os.getenv to read the invisible file
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
