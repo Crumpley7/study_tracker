@@ -1,19 +1,29 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from datetime import datetime
 import random
-import os
 from dotenv import load_dotenv
+from datetime import datetime, timedelta, date
+import json
 
-# Load variables from .env file
-load_dotenv()
+# --- PATH CONFIGURATION (NEW) ---
+# Get the base directory (the 'src' folder)
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+# Point to the .env file in the parent directory (root)
+load_dotenv(os.path.join(basedir, '../.env'))
 
 app = Flask(__name__)
 
-# use os.getenv to read the invisible file
+# --- CONFIG UPDATES ---
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+
+# Create the database in the ROOT folder (../study.db), not inside src
+# This keeps your code separate from your data
+db_path = os.path.join(basedir, '../study.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -109,6 +119,74 @@ def index():
     total_hours = sum(session.hours for session in sessions)
 
     return render_template('index.html', sessions=sessions, total_hours=total_hours, user=current_user)
+
+@app.route('/stats')
+@login_required
+def stats():
+    # --- CHART 1: DAILY (Current Week: Mon-Sun) ---
+    today = datetime.now().date()
+    # Find the most recent Monday (start of the week)
+    start_of_week = today - timedelta(days=today.weekday())
+
+    # Initialize 7 buckets for Mon-Sun
+    week_days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    daily_values = [0] * 7 # [0, 0, 0, 0, 0, 0, 0]
+
+    # Get data from this Monday onwards
+    current_week_sessions = StudySession.query.filter(
+        StudySession.user_id == current_user.id,
+        StudySession.date >= start_of_week
+    ).all()
+
+    # Fill the buckets
+    for session in current_week_sessions:
+        # session.date.weekday() returns 0 for Mon, 1 for Tue, etc.
+        day_index = session.date.weekday()
+        daily_values[day_index] += session.hours
+
+    # --- CHART 2: WEEKLY (Last 4 Weeks) ---
+    # We want 4 bars representing the last 4 weeks
+    weekly_labels = []
+    weekly_values = []
+
+    for i in range(4):
+        # Calculate start/end of the "week window" looking back
+        # We go in reverse: Current Week (0), Last Week (1), etc.
+        week_start = start_of_week - timedelta(weeks=3-i) # Start from 4 weeks ago
+        week_end = week_start + timedelta(days=6)
+
+        # Label: "Jan 01 - Jan 07"
+        label = f"{week_start.strftime('%b %d')} - {week_end.strftime('%b %d')}"
+        weekly_labels.append(label)
+
+        # Sum hours for this specific date range
+        week_total = 0
+        sessions = StudySession.query.filter(
+            StudySession.user_id == current_user.id,
+            StudySession.date >= week_start,
+            StudySession.date <= datetime.combine(week_end, datetime.max.time())
+        ).all()
+
+        week_total = sum(s.hours for s in sessions)
+        weekly_values.append(week_total)
+
+    # --- CHART 3: SUBJECTS (Existing Logic) ---
+    all_sessions = StudySession.query.filter_by(user_id=current_user.id).all()
+    subject_data = {}
+    for s in all_sessions:
+        subject_data[s.subject] = subject_data.get(s.subject, 0) + s.hours
+
+    return render_template('stats.html',
+                           user=current_user,
+                           # Daily Data
+                           daily_labels=json.dumps(week_days),
+                           daily_values=json.dumps(daily_values),
+                           # Weekly Data (NEW)
+                           weekly_labels=json.dumps(weekly_labels),
+                           weekly_values=json.dumps(weekly_values),
+                           # Subject Data
+                           subject_labels=json.dumps(list(subject_data.keys())),
+                           subject_values=json.dumps(list(subject_data.values())))
 
 @app.route('/delete/<int:id>')
 @login_required

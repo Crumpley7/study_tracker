@@ -8,9 +8,13 @@
 
 <nav class="navbar navbar-light bg-white shadow-sm mb-4">
     <div class="container">
-        <span class="navbar-brand mb-0 h1">StudyTracker</span>
+        <a href="/" class="navbar-brand mb-0 h1 text-decoration-none">StudyTracker</a>
+
         <div class="d-flex align-items-center">
-            <span class="me-3 text-muted">{{ user.email }}</span>
+            <span class="me-3 text-muted d-none d-md-block">{{ user.email }}</span>
+
+            <a href="/stats" class="btn btn-info btn-sm text-white me-2">View Stats</a>
+
             <a href="/logout" class="btn btn-outline-danger btn-sm">Logout</a>
         </div>
     </div>
