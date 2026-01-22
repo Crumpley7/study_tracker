@@ -1,0 +1,15 @@
+#Python Compiled Files
+__pycache__/
+*.pyc
+
+# Virtual Environment
+venv/
+env/
+
+# Database (Do NOT upload your local user data)
+*.db
+instance/
+
+# IDE settings (optional but recommended)
+.vscode/
+.idea/
